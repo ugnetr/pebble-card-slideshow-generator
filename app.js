@@ -20,6 +20,7 @@ function saveIconOverrides() {
 const state = {
   selectedPalettes: new Set(["default"]),
   selectedShapes: new Set(["1"]),
+  selectedColorRoles: new Set(HABIT_COLOR_ROLE_ORDER),
   selectedCategories: new Set(),
   theme: "light",
   assignMode: "cycle", // "cycle" | "random"
@@ -347,10 +348,21 @@ function buildFolderGroups(list, seed) {
   return { groups, leftovers };
 }
 
+/**
+ * The color roles allowed on cards: the enabled subset, kept in canonical
+ * order. Falls back to the full order if the user has turned every color off
+ * (so cards always have a color to use).
+ */
+function activeColorRoles() {
+  const roles = HABIT_COLOR_ROLE_ORDER.filter((r) => state.selectedColorRoles.has(r));
+  return roles.length ? roles : HABIT_COLOR_ROLE_ORDER;
+}
+
 /** Deterministic style assignment for the habit at `index` within `list`. */
 function styleForIndex(index, list) {
   const palettes = [...state.selectedPalettes];
   const shapes = [...state.selectedShapes];
+  const roles = activeColorRoles();
   if (palettes.length === 0) palettes.push("default");
   if (shapes.length === 0) shapes.push("1");
 
@@ -359,13 +371,13 @@ function styleForIndex(index, list) {
     return {
       paletteId: palettes[Math.floor(rng() * palettes.length)],
       shapeId: shapes[Math.floor(rng() * shapes.length)],
-      colorRole: HABIT_COLOR_ROLE_ORDER[Math.floor(rng() * HABIT_COLOR_ROLE_ORDER.length)],
+      colorRole: roles[Math.floor(rng() * roles.length)],
     };
   }
   return {
     paletteId: palettes[index % palettes.length],
     shapeId: shapes[index % shapes.length],
-    colorRole: HABIT_COLOR_ROLE_ORDER[index % HABIT_COLOR_ROLE_ORDER.length],
+    colorRole: roles[index % roles.length],
   };
 }
 
@@ -393,8 +405,59 @@ paletteGrid.addEventListener("change", (e) => {
   if (!id) return;
   if (e.target.checked) state.selectedPalettes.add(id);
   else state.selectedPalettes.delete(id);
+  refreshColorSwatches();
   renderPreview();
 });
+
+// ── Build card-color (color-role) picker ──
+// The 18 color roles are shared across every palette; disabling a role stops
+// it from being assigned to any card. Swatches preview the role's hex in the
+// first selected palette (or Default when none is selected).
+const colorRoleGrid = document.getElementById("colorRoleGrid");
+function swatchPaletteId() {
+  const first = [...state.selectedPalettes][0];
+  return first && HABIT_PALETTES[first] ? first : "default";
+}
+HABIT_COLOR_ROLE_ORDER.forEach((role) => {
+  const chip = document.createElement("label");
+  chip.className = "colorChip";
+  chip.dataset.role = role;
+  chip.innerHTML = `
+    <input type="checkbox" data-role="${role}" ${state.selectedColorRoles.has(role) ? "checked" : ""} />
+    <span class="colorDot" data-role="${role}"></span>
+    ${role}
+  `;
+  colorRoleGrid.appendChild(chip);
+});
+function refreshColorSwatches() {
+  const pal = HABIT_PALETTES[swatchPaletteId()].colors;
+  colorRoleGrid.querySelectorAll(".colorChip").forEach((chip) => {
+    const role = chip.dataset.role;
+    chip.querySelector(".colorDot").style.background = pal[role] || "#ccc";
+    chip.classList.toggle("off", !state.selectedColorRoles.has(role));
+  });
+}
+colorRoleGrid.addEventListener("change", (e) => {
+  const role = e.target.dataset.role;
+  if (!role) return;
+  if (e.target.checked) state.selectedColorRoles.add(role);
+  else state.selectedColorRoles.delete(role);
+  refreshColorSwatches();
+  renderPreview();
+});
+document.getElementById("selectAllColors").addEventListener("click", () => {
+  HABIT_COLOR_ROLE_ORDER.forEach((r) => state.selectedColorRoles.add(r));
+  colorRoleGrid.querySelectorAll("input").forEach((i) => (i.checked = true));
+  refreshColorSwatches();
+  renderPreview();
+});
+document.getElementById("selectNoneColors").addEventListener("click", () => {
+  state.selectedColorRoles.clear();
+  colorRoleGrid.querySelectorAll("input").forEach((i) => (i.checked = false));
+  refreshColorSwatches();
+  renderPreview();
+});
+refreshColorSwatches();
 
 // ── Build shape picker ──
 const shapeGrid = document.getElementById("shapeGrid");
@@ -792,7 +855,9 @@ bulkBtn.addEventListener("click", async () => {
     if (done % 4 === 0) await new Promise((r) => requestAnimationFrame(r));
   };
 
-  const order = HABIT_COLOR_ROLE_ORDER;
+  // Only the enabled colors are assigned; within a folder we still rotate
+  // through them to keep the four cards distinct when 4+ colors are enabled.
+  const order = activeColorRoles();
 
   if (groupFolders) {
     const { groups, leftovers } = buildFolderGroups(list, state.seed);

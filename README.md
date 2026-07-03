@@ -18,6 +18,11 @@ the single file — see "Rebuilding" below.)
 
 1. **Color palettes** — pick one or more of the app's 9 palettes (Default,
    Pastel, Vibrant, Earth, Sunset, Forest, Berry, Citrus, Midnight).
+   **Card colors** — each palette maps the same 18 color roles (red, coral,
+   … grey, brown); toggle any of them off so that color is never assigned to
+   a card. Swatches preview the role in the first selected palette. (With
+   fewer than 4 colors enabled, the "4 distinct colors per folder" export
+   guarantee can't hold and colors repeat within a folder.)
 2. **Pebble shapes** — pick one or more of the app's 14 day-shapes.
 3. **Habits to include** — filter by category, or generate all ~244.
 4. **Style** — light/dark theme, and how palette/shape/color get assigned
