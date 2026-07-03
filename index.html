@@ -161,6 +161,50 @@
   .previewNav { display: flex; gap: 8px; }
   #previewMeta { font-size: 12px; color: var(--text-secondary); text-align: center; max-width: 500px; }
 
+  #iconPicker {
+    width: 402px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    background: white;
+    font-size: 13px;
+  }
+  .iconPickerHead { display: flex; align-items: center; gap: 6px; }
+  .iconPickerLabel { color: var(--text-secondary); }
+  .currentIconGlyph { font-size: 20px; line-height: 1; width: 24px; text-align: center; }
+  #currentIconName { font-family: monospace; font-size: 12px; }
+  .iconOverrideTag {
+    font-size: 10px; background: #2f5d63; color: white;
+    padding: 1px 6px; border-radius: 999px;
+  }
+  #iconPickerBody { margin-top: 8px; }
+  #iconSearch {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; box-sizing: border-box; margin-bottom: 8px;
+  }
+  #iconGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .iconBtn {
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    font-size: 21px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .iconBtn:hover { background: #f2f4f7; border-color: #2f5d63; }
+  .iconBtn.selected { background: #e5eef0; border-color: #2f5d63; border-width: 2px; }
+
   #progressWrap { display: none; margin-top: 10px; }
   #progressTrack {
     background: #eee;
@@ -311,6 +355,12 @@
     <section class="block">
       <h2>Export</h2>
       <div id="habitCount"></div>
+      <div class="row">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+          <input type="checkbox" id="groupFolders" checked />
+          Group into folders of 4 (distinct category + color)
+        </label>
+      </div>
       <button class="primary" id="bulkGenerate">Generate All as ZIP</button>
       <div id="progressWrap">
         <div id="progressTrack"><div id="progressBar"></div></div>
@@ -328,6 +378,22 @@
       <button class="secondary" id="randomHabit">🔀 Random</button>
       <button class="secondary" id="nextHabit">Next →</button>
       <button class="secondary" id="downloadOne">⬇ Download this PNG</button>
+    </div>
+
+    <div id="iconPicker">
+      <div class="iconPickerHead">
+        <span class="iconPickerLabel">Icon:</span>
+        <span id="currentIconGlyph" class="currentIconGlyph"></span>
+        <b id="currentIconName"></b>
+        <span id="iconOverrideTag" class="iconOverrideTag" style="display:none">custom</span>
+        <span style="flex:1"></span>
+        <button class="secondary" id="toggleIconPicker">Change icon</button>
+        <button class="secondary" id="resetIcon" title="Revert to the auto-picked icon">Auto</button>
+      </div>
+      <div id="iconPickerBody" style="display:none">
+        <input type="text" id="iconSearch" placeholder="Search icons by name or keyword…" />
+        <div id="iconGrid"></div>
+      </div>
     </div>
   </div>
 </div>
