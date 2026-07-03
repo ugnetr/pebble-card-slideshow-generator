@@ -328,10 +328,28 @@ function wrapText(ctx, text, maxWidth) {
  *   icon: app icon name (e.g. "barbell-outline" or "mci:yoga")
  *   paletteId, colorRole, shapeId, theme ("light"|"dark"), seedOffset
  *   settings: overrides merged over DEFAULT_SETTINGS
+ *   parts: optional { background, card, captions } layer flags. When given,
+ *     only the enabled layers are drawn and everything else stays transparent
+ *     (used for the transparent card / text exports). When omitted, behaviour
+ *     matches the classic composite: page background + card (unless the
+ *     Background-only toggle hides it via settings.showCard) + captions.
  */
 function renderHabitCard(ctx, opts) {
   const { habit, icon, paletteId, colorRole, shapeId, theme: themeName, seedOffset = 0 } = opts;
   const S = { ...DEFAULT_SETTINGS, ...(opts.settings || {}) };
+
+  // Which layers to draw. Layout math below always runs, so caption positions
+  // stay identical whether we draw one layer or all of them — that lets the
+  // separate transparent card + text PNGs composite back to the full card.
+  const parts = opts.parts || null;
+  const drawBackgroundLayer = parts ? !!parts.background : true;
+  const drawCardLayer = parts ? !!parts.card : S.showCard;
+  const drawCaptionsLayer = parts ? !!parts.captions : true;
+
+  // Start from a clean, transparent canvas. The page fill below re-covers it
+  // for composite renders; for layer exports it leaves the untouched areas
+  // transparent.
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
   const theme = APP_THEME[themeName] || APP_THEME.light;
   const palette = HABIT_PALETTES[paletteId] || HABIT_PALETTES.default;
   const habitColor = palette.colors[colorRole] || palette.colors.teal;
@@ -393,22 +411,25 @@ function renderHabitCard(ctx, opts) {
     : "rgba(17,24,28,0.1)";
 
   // ── Background ──
-  ctx.fillStyle = pageBg;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   const bgPhase = rng() * 400;
-  // Stripe/wave lines follow the page luminance (light lines on dark pages).
-  const bgTheme = {
-    stripeColor: pageDark ? "#FFFFFF" : "#000000",
-    stripeOpacity: pageDark ? 0.09 : 0.06,
-  };
-  if (S.bgAnimation === "stripes") drawStripesBackground(ctx, CANVAS_W, CANVAS_H, bgTheme, bgPhase);
-  else if (S.bgAnimation === "waves") drawWavesBackground(ctx, CANVAS_W, CANVAS_H, bgTheme, bgPhase);
+  if (drawBackgroundLayer) {
+    ctx.fillStyle = pageBg;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    // Stripe/wave lines follow the page luminance (light lines on dark pages).
+    const bgTheme = {
+      stripeColor: pageDark ? "#FFFFFF" : "#000000",
+      stripeOpacity: pageDark ? 0.09 : 0.06,
+    };
+    if (S.bgAnimation === "stripes") drawStripesBackground(ctx, CANVAS_W, CANVAS_H, bgTheme, bgPhase);
+    else if (S.bgAnimation === "waves") drawWavesBackground(ctx, CANVAS_W, CANVAS_H, bgTheme, bgPhase);
+  }
 
-  // Background-only export: stop here, leaving just the color + animation.
-  if (!S.showCard) return;
+  // Nothing more to draw when only the background layer is requested.
+  if (!drawCardLayer && !drawCaptionsLayer) return;
 
   // ── Card surface (solid fill) ──
   const cardY = groupTop;
+  if (drawCardLayer) {
   drawRoundedRectPath(ctx, cardX, cardY, cardWidth, cardHeight, cardRadius);
   ctx.fillStyle = cardBg;
   ctx.fill();
@@ -480,20 +501,23 @@ function renderHabitCard(ctx, opts) {
       drawShape(ctx, shapeDef, cx, cy, heatmapCubeSize, color);
     }
   }
+  } // end card layer
 
   // ── Captions below the card (sit on the page, so they contrast with it) ──
-  let ty = cardY + cardHeight + S.captionGap;
-  ctx.textAlign = "center";
-  const pageContent = contentColorsFor(pageBg);
-  const capColors = [pageContent.text, pageContent.textSecondary, pageContent.textSecondary];
-  captionBlocks.forEach((lines, i) => {
-    ctx.font = `500 ${S.captionSize}px ${FONT_STACK}`;
-    ctx.fillStyle = S.captionColor || capColors[i] || pageContent.textSecondary;
-    lines.forEach((line, li) => {
-      ctx.fillText(line, CANVAS_W / 2, ty + S.captionSize * 0.82 + li * captionLineHeight);
+  if (drawCaptionsLayer) {
+    let ty = cardY + cardHeight + S.captionGap;
+    ctx.textAlign = "center";
+    const pageContent = contentColorsFor(pageBg);
+    const capColors = [pageContent.text, pageContent.textSecondary, pageContent.textSecondary];
+    captionBlocks.forEach((lines, i) => {
+      ctx.font = `500 ${S.captionSize}px ${FONT_STACK}`;
+      ctx.fillStyle = S.captionColor || capColors[i] || pageContent.textSecondary;
+      lines.forEach((line, li) => {
+        ctx.fillText(line, CANVAS_W / 2, ty + S.captionSize * 0.82 + li * captionLineHeight);
+      });
+      ty += lines.length * captionLineHeight + S.captionSpacing;
     });
-    ty += lines.length * captionLineHeight + S.captionSpacing;
-  });
+  }
 }
 
 const FONT_STACK =

@@ -33,7 +33,13 @@ the single file — see "Rebuilding" below.)
    captions recolor automatically to stay legible on whatever page/card
    colors you pick; the checkmark follows the theme (white in light mode).
    A **Background only** toggle hides the card and text so you can export
-   just the page color + animation as a 1206×1499 PNG.
+   just the page color + animation as a 1206×1499 PNG. A **Transparent
+   layers** toggle (Export section) bulk-exports each habit as two 1206×1499
+   PNGs on a transparent background — `…-card.png` (just the card, no page
+   color or animation) and `…-text.png` (just the captions) — with all theme,
+   color, and text settings still applied. Both layers keep the exact
+   positions of the composite, so dropping them back on top of each other
+   reproduces the full card.
 7. Preview any card before running the full batch (Prev/Next/Random), then
    **Generate All as ZIP**.
 
@@ -66,6 +72,10 @@ fonts embedded as subsets). Each habit's icon is chosen in three tiers:
   folders, no leftovers). Re-roll the **Seed** (Shuffle) for a different
   grouping.
 - Unchecked: a flat ZIP of `001-morning-stretch.png`, `002-20-squats.png`, …
+
+With **Transparent layers** on, every PNG above is emitted as two files
+instead — e.g. `001-morning-stretch-card.png` and
+`001-morning-stretch-text.png` — inside the same folder structure.
 
 ## Rebuilding the single file
 

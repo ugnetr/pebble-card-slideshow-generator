@@ -747,6 +747,7 @@ bulkBtn.addEventListener("click", async () => {
   const offCtx = off.getContext("2d");
 
   const groupFolders = document.getElementById("groupFolders").checked;
+  const transparentLayers = document.getElementById("transparentLayers").checked;
   const palettes = [...state.selectedPalettes];
   const shapes = [...state.selectedShapes];
   if (palettes.length === 0) palettes.push("default");
@@ -754,18 +755,37 @@ bulkBtn.addEventListener("click", async () => {
   const total = list.length;
   let done = 0;
 
-  // Render one habit into the zip at `path` using the given style.
-  const emit = async (habit, style, path) => {
+  // Render one layer (or the full composite) of a habit to a PNG blob. `parts`
+  // is null for the classic composite, or a { background, card, captions }
+  // flag set for the transparent card / text layers.
+  const renderToBlob = async (habit, style, parts) => {
     renderHabitCard(offCtx, {
       habit,
       icon: assignIcon(habit),
       theme: state.theme,
       seedOffset: state.seed,
       settings: state.settings,
+      parts,
       ...style,
     });
-    const blob = await new Promise((resolve) => off.toBlob(resolve, "image/png"));
-    zip.file(path, blob);
+    return await new Promise((resolve) => off.toBlob(resolve, "image/png"));
+  };
+
+  // Render one habit into the zip at `path` using the given style. With the
+  // transparent-layers toggle on, the single PNG becomes two: `<name>-card.png`
+  // (just the card, transparent bg) and `<name>-text.png` (just the captions,
+  // transparent bg) — both keep the exact positions of the composite so they
+  // layer back together.
+  const emit = async (habit, style, path) => {
+    if (transparentLayers) {
+      const cardBlob = await renderToBlob(habit, style, { background: false, card: true, captions: false });
+      zip.file(path.replace(/\.png$/i, "-card.png"), cardBlob);
+      const textBlob = await renderToBlob(habit, style, { background: false, card: false, captions: true });
+      zip.file(path.replace(/\.png$/i, "-text.png"), textBlob);
+    } else {
+      const blob = await renderToBlob(habit, style, null);
+      zip.file(path, blob);
+    }
     done++;
     progressBar.style.width = `${Math.round((done / total) * 100)}%`;
     progressText.textContent = `Rendering ${done} / ${total} — ${habit.name}`;
@@ -816,7 +836,9 @@ bulkBtn.addEventListener("click", async () => {
     progressBar.style.width = `${Math.round(meta.percent)}%`;
   });
   downloadBlob(content, `habit-cards-${Date.now()}.zip`);
-  progressText.textContent = `Done — ${done} PNGs exported.`;
+  const fileCount = transparentLayers ? done * 2 : done;
+  progressText.textContent =
+    `Done — ${fileCount} PNGs exported${transparentLayers ? ` (${done} card + ${done} text)` : ""}.`;
   bulkBtn.disabled = false;
 });
 
