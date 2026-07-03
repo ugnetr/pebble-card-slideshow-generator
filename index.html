@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Pebble Habit Card Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #f5f5f5;
+    --panel: #ffffff;
+    --border: #e2e2e2;
+    --text: #11181c;
+    --text-secondary: #6b7280;
+    --accent: #3e6f7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 20px 28px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 0;
+    align-items: start;
+  }
+  .controls {
+    padding: 20px;
+    height: calc(100vh - 80px);
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+  .preview {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  section.block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  section.block h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin: 0 0 10px;
+  }
+
+  .swatchGrid, .shapeGridEl {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .swatchCard, .shapeCard {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .swatchCard input, .shapeCard input { margin: 0; flex-shrink: 0; }
+  .swatchDots { display: flex; flex-wrap: wrap; gap: 2px; max-width: 90px; }
+  .swatchDots .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .swatchLabel { font-weight: 600; }
+  .swatchDesc { color: var(--text-secondary); font-size: 10.5px; }
+  .shapeLabel { font-size: 11px; color: var(--text-secondary); }
+
+  .categoryGridEl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .categoryChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f0f0f0;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .categoryChip .count { color: var(--text-secondary); }
+  .catActions { margin-bottom: 8px; display: flex; gap: 8px; }
+  .catActions button {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: white;
+    cursor: pointer;
+  }
+
+  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .sliderRow {
+    display: grid;
+    grid-template-columns: 120px 1fr 52px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+  }
+  .sliderRow input[type="range"] { width: 100%; }
+  .sliderValue { color: var(--text-secondary); font-size: 11.5px; text-align: right; }
+  select, input[type="number"] {
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+  }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary {
+    background: white;
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  #previewCanvas {
+    width: 402px;
+    height: auto;
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    background: white;
+  }
+  .previewNav { display: flex; gap: 8px; }
+  #previewMeta { font-size: 12px; color: var(--text-secondary); text-align: center; max-width: 500px; }
+
+  #progressWrap { display: none; margin-top: 10px; }
+  #progressTrack {
+    background: #eee;
+    border-radius: 999px;
+    height: 8px;
+    overflow: hidden;
+  }
+  #progressBar {
+    background: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width 0.15s;
+  }
+  #progressText { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+  #habitCount { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🪨 Pebble Habit Card Generator</h1>
+  <p>Bulk-generate 1206×1499 PNG marketing cards from the habit spreadsheet, using the app's real color palettes and pebble shapes.</p>
+</header>
+
+<div class="layout">
+  <div class="controls">
+
+    <section class="block">
+      <h2>Color palettes</h2>
+      <div id="paletteGrid" class="swatchGrid"></div>
+    </section>
+
+    <section class="block">
+      <h2>Pebble shapes</h2>
+      <div id="shapeGrid" class="shapeGridEl"></div>
+    </section>
+
+    <section class="block">
+      <h2>Habits to include</h2>
+      <div class="catActions">
+        <button id="selectAllCategories">Select all</button>
+        <button id="selectNoneCategories">Select none</button>
+      </div>
+      <div id="categoryGrid" class="categoryGridEl"></div>
+    </section>
+
+    <section class="block">
+      <h2>Style</h2>
+      <div class="row">
+        <label>Theme</label>
+        <select id="themeSelect">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Assign colors/shapes</label>
+        <select id="assignMode">
+          <option value="cycle">Cycle through selection</option>
+          <option value="random">Random (seeded)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Seed</label>
+        <input type="number" id="seedInput" style="width:90px" />
+        <button class="secondary" id="shuffleSeed">🎲 Shuffle</button>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Card &amp; text layout</h2>
+      <div class="sliderRow">
+        <label>Card size</label>
+        <input type="range" id="cardScale" min="55" max="125" step="1" />
+        <span class="sliderValue" id="cardScaleValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Corner radius</label>
+        <input type="range" id="cardRadius" min="0" max="90" step="2" />
+        <span class="sliderValue" id="cardRadiusValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Vertical position</label>
+        <input type="range" id="offsetY" min="-350" max="350" step="5" />
+        <span class="sliderValue" id="offsetYValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Text size</label>
+        <input type="range" id="captionSize" min="20" max="60" step="1" />
+        <span class="sliderValue" id="captionSizeValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Gap card → text</label>
+        <input type="range" id="captionGap" min="20" max="240" step="5" />
+        <span class="sliderValue" id="captionGapValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Gap between texts</label>
+        <input type="range" id="captionSpacing" min="8" max="100" step="2" />
+        <span class="sliderValue" id="captionSpacingValue"></span>
+      </div>
+      <div class="sliderRow">
+        <label>Text max width</label>
+        <input type="range" id="captionMaxWidth" min="500" max="1100" step="10" />
+        <span class="sliderValue" id="captionMaxWidthValue"></span>
+      </div>
+      <div class="row">
+        <label>Text color</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px">
+          <input type="checkbox" id="captionColorAuto" checked /> Theme default
+        </label>
+        <input type="color" id="captionColor" value="#11181C" disabled />
+      </div>
+      <button class="secondary" id="resetLayout" style="margin-top:6px">Reset layout</button>
+    </section>
+
+    <section class="block">
+      <h2>Background</h2>
+      <div class="row">
+        <label>Animation</label>
+        <select id="bgAnimation">
+          <option value="stripes">Stripes</option>
+          <option value="waves">Waves</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Page color</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px">
+          <input type="checkbox" id="bgColorAuto" checked /> Theme default
+        </label>
+        <input type="color" id="bgColor" value="#FFFFFF" disabled />
+      </div>
+      <div class="row">
+        <label>Card color</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:13px">
+          <input type="checkbox" id="cardBackgroundAuto" checked /> Theme default
+        </label>
+        <input type="color" id="cardBackground" value="#FFFFFF" disabled />
+      </div>
+      <div class="row">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+          <input type="checkbox" id="backgroundOnly" /> Background only (hide card &amp; text)
+        </label>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Export</h2>
+      <div id="habitCount"></div>
+      <button class="primary" id="bulkGenerate">Generate All as ZIP</button>
+      <div id="progressWrap">
+        <div id="progressTrack"><div id="progressBar"></div></div>
+        <div id="progressText"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="preview">
+    <canvas id="previewCanvas"></canvas>
+    <div id="previewMeta"></div>
+    <div class="previewNav">
+      <button class="secondary" id="prevHabit">← Prev</button>
+      <button class="secondary" id="randomHabit">🔀 Random</button>
+      <button class="secondary" id="nextHabit">Next →</button>
+      <button class="secondary" id="downloadOne">⬇ Download this PNG</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/jszip.min.js"></script>
+<script src="habits.js"></script>
+<script src="palettes.js"></script>
+<script src="icons.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
