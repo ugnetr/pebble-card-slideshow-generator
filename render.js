@@ -25,11 +25,29 @@ const LAYOUT = {
   heatmapGap: 9,
   cardRadius: 36,
   cardBorderWidth: 1.5,
+  // Week-strip card (components/HabitWeekCard.tsx): 7 flex columns with a
+  // one-letter day label above each pebble. In the app: strip gap 6pt,
+  // label 10pt/600 uppercase, label→cube gap 4pt, topRow paddingBottom 8pt
+  // + row gap 10pt = 18pt from the top row to the strip. All ×3 (SCALE).
+  weekGap: 18,
+  weekDayLabelSize: 30,
+  weekLabelGap: 12,
+  topRowToWeekGap: 54,
+};
+
+// One-letter day labels for the week strip, rotated by week start
+// (DAY_LABELS_SUN_FIRST in HabitWeekCard.tsx; the app default is Sunday).
+const WEEK_DAY_LABELS = {
+  sun: ["S", "M", "T", "W", "T", "F", "S"],
+  mon: ["M", "T", "W", "T", "F", "S", "S"],
 };
 
 // User-adjustable settings and their defaults. `cardScale` scales the whole
 // card block; caption values are absolute canvas px.
 const DEFAULT_SETTINGS = {
+  cardType: "main",    // "main" (multi-week heatmap) | "week" (7-day strip)
+  weekStart: "sun",    // "sun" | "mon" — first column of the week strip
+  multiStep: true,     // false → binary habits: days fully done or empty (no partial shades)
   cardScale: 1,
   cardRadius: 36,      // corner roundedness (base px, scales with cardScale)
   offsetY: 0,          // shifts the whole card+text group vertically
@@ -280,6 +298,29 @@ function generateDummyCompletions(rng, cols, rows) {
   return grid;
 }
 
+// ─── Dummy week completions (7 days, "today" is the last cell) ──
+function generateDummyWeek(rng) {
+  // A believable good week: mostly complete, the odd partial day, at most a
+  // rare miss — and today always lands complete so the card feels satisfying.
+  const days = [];
+  for (let i = 0; i < 6; i++) {
+    const roll = rng();
+    if (roll < 0.68) days.push({ intensity: 2, ratio: 1 });
+    else if (roll < 0.9) days.push({ intensity: 1, ratio: 0.35 + rng() * 0.4 });
+    else days.push({ intensity: 0, ratio: 0 });
+  }
+  days.push({ intensity: 2, ratio: 1 });
+  return days;
+}
+
+// Binary (non-multi-step) habits are simply done or not done on a day, so the
+// "partial" intensity doesn't exist for them — collapse it to a full
+// completion. Mapping (rather than re-rolling) keeps the rng stream identical,
+// so toggling multi-step never reshuffles which days are filled.
+function collapsePartial(cell) {
+  return cell.intensity === 1 ? { intensity: 2, ratio: 1 } : cell;
+}
+
 function intensityColor(cell, baseColor, emptyColor) {
   if (cell.intensity === 2) return baseColor;
   if (cell.intensity === 1) {
@@ -384,10 +425,21 @@ function renderHabitCard(ctx, opts) {
     L.titleFontSize + (subtitleText ? L.titleSubtitleGap + L.subtitleFontSize : 0);
   const topRowHeight = Math.max(L.iconBox, L.checkboxSize, topRowTextHeight);
 
+  // The block under the top row is either the multi-week heatmap (main card)
+  // or the 7-day week strip (week card). Both size off innerWidth so the card
+  // scales uniformly with cardScale.
+  const isWeekCard = S.cardType === "week";
+
   const heatmapCubeSize = (innerWidth - (L.heatmapCols - 1) * L.heatmapGap) / L.heatmapCols;
   const heatmapHeight = L.heatmapRows * heatmapCubeSize + (L.heatmapRows - 1) * L.heatmapGap;
 
-  const cardHeight = L.cardPadding + topRowHeight + L.topRowToHeatmapGap + heatmapHeight + L.cardPadding;
+  const weekCubeSize = (innerWidth - 6 * L.weekGap) / 7;
+  const weekStripHeight = L.weekDayLabelSize + L.weekLabelGap + weekCubeSize;
+
+  const gridGap = isWeekCard ? L.topRowToWeekGap : L.topRowToHeatmapGap;
+  const gridHeight = isWeekCard ? weekStripHeight : heatmapHeight;
+
+  const cardHeight = L.cardPadding + topRowHeight + gridGap + gridHeight + L.cardPadding;
 
   const captionLineHeight = Math.round(S.captionSize * 1.38);
   ctx.font = `500 ${S.captionSize}px ${FONT_STACK}`;
@@ -489,16 +541,44 @@ function renderHabitCard(ctx, opts) {
   ctx.fillText(String.fromCodePoint(CHECKMARK_CP), cbCx, cbCy);
   ctx.restore();
 
-  // ── Heatmap ──
-  const heatmapY = rowY + topRowHeight + L.topRowToHeatmapGap;
-  const grid = generateDummyCompletions(rng, L.heatmapCols, L.heatmapRows);
-  for (let c = 0; c < L.heatmapCols; c++) {
-    for (let r = 0; r < L.heatmapRows; r++) {
-      const cell = grid[c][r];
+  // ── Heatmap (main card) / week strip (week card) ──
+  const gridY = rowY + topRowHeight + gridGap;
+  if (isWeekCard) {
+    // 7-day strip: day letter above each pebble, plus the app's circular
+    // "selected day" dot on today (HabitWeekCard + HabitDayCube: dot is 40%
+    // of the cube, empty-colored on completed days, habit-colored otherwise;
+    // highlightCurrentDay defaults to on in the app).
+    const labels = WEEK_DAY_LABELS[S.weekStart] || WEEK_DAY_LABELS.sun;
+    let week = generateDummyWeek(rng);
+    if (!S.multiStep) week = week.map(collapsePartial);
+    const cubeY = gridY + L.weekDayLabelSize + L.weekLabelGap;
+    ctx.font = `600 ${L.weekDayLabelSize}px ${FONT_STACK}`;
+    for (let i = 0; i < 7; i++) {
+      const cx = rowX + i * (weekCubeSize + L.weekGap);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = content.textSecondary;
+      ctx.fillText(labels[i], cx + weekCubeSize / 2, gridY + L.weekDayLabelSize * 0.82);
+      const cell = week[i];
       const color = intensityColor(cell, habitColor, content.empty);
-      const cx = rowX + c * (heatmapCubeSize + L.heatmapGap);
-      const cy = heatmapY + r * (heatmapCubeSize + L.heatmapGap);
-      drawShape(ctx, shapeDef, cx, cy, heatmapCubeSize, color);
+      drawShape(ctx, shapeDef, cx, cubeY, weekCubeSize, color);
+      if (i === 6) {
+        ctx.beginPath();
+        ctx.arc(cx + weekCubeSize / 2, cubeY + weekCubeSize / 2, weekCubeSize * 0.2, 0, Math.PI * 2);
+        ctx.fillStyle = cell.intensity === 2 ? content.empty : habitColor;
+        ctx.fill();
+      }
+    }
+  } else {
+    const grid = generateDummyCompletions(rng, L.heatmapCols, L.heatmapRows);
+    for (let c = 0; c < L.heatmapCols; c++) {
+      for (let r = 0; r < L.heatmapRows; r++) {
+        const cell = S.multiStep ? grid[c][r] : collapsePartial(grid[c][r]);
+        const color = intensityColor(cell, habitColor, content.empty);
+        const cx = rowX + c * (heatmapCubeSize + L.heatmapGap);
+        const cy = gridY + r * (heatmapCubeSize + L.heatmapGap);
+        drawShape(ctx, shapeDef, cx, cy, heatmapCubeSize, color);
+      }
     }
   }
   } // end card layer

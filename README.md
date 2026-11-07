@@ -25,9 +25,16 @@ the single file — see "Rebuilding" below.)
    guarantee can't hold and colors repeat within a folder.)
 2. **Pebble shapes** — pick one or more of the app's 14 day-shapes.
 3. **Habits to include** — filter by category, or generate all ~244.
-4. **Style** — light/dark theme, and how palette/shape/color get assigned
-   per habit: cycle through your selection in order, or randomize with a
-   reproducible seed (same seed + same selections = same output).
+4. **Style** — **card type**: the main habit card (multi-week heatmap) or
+   the week habit card (the app's 7-day strip with S/M/T/W/T/F/S labels, a
+   mostly-complete dummy week, and the "today" dot on the last day; week can
+   start on Sunday or Monday). A **multi-step completions** checkbox controls
+   whether dummy days include partial-completion shades (on, the default) or
+   render as binary done/not-done — solid habit color or empty — for habits
+   that are simply completed or not (toggling it never reshuffles which days
+   are filled). Plus light/dark theme, and how palette/shape/color get
+   assigned per habit: cycle through your selection in order, or randomize
+   with a reproducible seed (same seed + same selections = same output).
 5. **Card & text layout** — sliders for card size (scales the whole card,
    heatmap included), corner radius, vertical position, caption text size,
    card→text gap, spacing between captions, and text max width; plus a

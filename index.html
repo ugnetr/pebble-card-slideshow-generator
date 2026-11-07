@@ -286,6 +286,26 @@
     <section class="block">
       <h2>Style</h2>
       <div class="row">
+        <label>Card type</label>
+        <select id="cardType">
+          <option value="main">Main (heatmap)</option>
+          <option value="week">Week (7-day strip)</option>
+        </select>
+      </div>
+      <div class="row" id="weekStartRow" style="display:none">
+        <label>Week starts on</label>
+        <select id="weekStart">
+          <option value="sun">Sunday</option>
+          <option value="mon">Monday</option>
+        </select>
+      </div>
+      <div class="row">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+          <input type="checkbox" id="multiStep" checked />
+          Multi-step completions (partial-shade days)
+        </label>
+      </div>
+      <div class="row">
         <label>Theme</label>
         <select id="themeSelect">
           <option value="light">Light</option>

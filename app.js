@@ -511,6 +511,27 @@ document.getElementById("selectNoneCategories").addEventListener("click", () => 
   updateCount();
 });
 
+// ── Card type (main heatmap card vs 7-day week card) ──
+const weekStartRow = document.getElementById("weekStartRow");
+document.getElementById("cardType").addEventListener("change", (e) => {
+  state.settings.cardType = e.target.value;
+  weekStartRow.style.display = e.target.value === "week" ? "" : "none";
+  renderPreview();
+});
+document.getElementById("weekStart").addEventListener("change", (e) => {
+  state.settings.weekStart = e.target.value;
+  renderPreview();
+});
+
+// ── Multi-step completions ──
+// On (default): dummy days include the app's partial-completion shades, as on
+// habits with multi-step targets. Off: binary habits — every day is either
+// fully done (solid habit color) or not done (empty), no in-between shades.
+document.getElementById("multiStep").addEventListener("change", (e) => {
+  state.settings.multiStep = e.target.checked;
+  renderPreview();
+});
+
 // ── Theme + assignment mode ──
 document.getElementById("themeSelect").addEventListener("change", (e) => {
   state.theme = e.target.value;
@@ -562,9 +583,13 @@ SLIDERS.forEach(({ id, key, scale, suffix }) => {
   });
 });
 document.getElementById("resetLayout").addEventListener("click", () => {
-  // Reset layout + text, but keep background choices (their own section).
+  // Reset layout + text, but keep background choices (their own section) and
+  // the card type / week start (Style section, not layout).
   state.settings = {
     ...DEFAULT_SETTINGS,
+    cardType: state.settings.cardType,
+    weekStart: state.settings.weekStart,
+    multiStep: state.settings.multiStep,
     bgAnimation: state.settings.bgAnimation,
     bgColor: state.settings.bgColor,
     cardBackground: state.settings.cardBackground,
@@ -900,7 +925,8 @@ bulkBtn.addEventListener("click", async () => {
   const content = await zip.generateAsync({ type: "blob" }, (meta) => {
     progressBar.style.width = `${Math.round(meta.percent)}%`;
   });
-  downloadBlob(content, `habit-cards-${Date.now()}.zip`);
+  const zipPrefix = state.settings.cardType === "week" ? "habit-week-cards" : "habit-cards";
+  downloadBlob(content, `${zipPrefix}-${Date.now()}.zip`);
   const fileCount = transparentLayers ? done * 2 : done;
   progressText.textContent =
     `Done — ${fileCount} PNGs exported${transparentLayers ? ` (${done} card + ${done} text)` : ""}.`;
